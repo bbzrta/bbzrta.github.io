@@ -14,9 +14,9 @@ timezone: Europe/London
 # jekyll-seo-tag settings › https://github.com/jekyll/jekyll-seo-tag/blob/master/docs/usage.md
 # ↓ --------------------------
 
-title: OPSE.ch # the main title
+title: opse.ch # the main title
 
-tagline: # it will display as the sub-title
+tagline: 
 
 description: >- # used by seo meta and the atom feed
   A straight forward blog for hacky stuff.
