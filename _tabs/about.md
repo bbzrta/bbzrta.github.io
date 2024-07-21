@@ -12,7 +12,7 @@ Beyond security, I'm a Linux enthusiast with a strong foundation in various dist
 
 While cybersecurity is a captivating field, I also hold a deep appreciation for the elegance and reliability of well-designed computer networks. They form the backbone of our digital communication, facilitating access to an ocean of information. 
 
-I'm here to connect with like-minded individuals and share my experiences and knowledge. Let's explore the fascinating world of technology together!
+I'm here to connect with like-minded individuals and share my experiences and knowledge. feel free to contact me :)
 
 **Best,**
 
