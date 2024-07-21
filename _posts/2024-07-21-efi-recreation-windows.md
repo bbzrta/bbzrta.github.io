@@ -18,10 +18,10 @@ A while ago as I was playing around with my dualboot system, i accidentally dele
 
 #### **1. Boot from Installation Media:**
 
-    * Insert your Windows installation media and restart your computer.
-    * During startup, you might need to press a specific key (usually Del, Esc, F2, F10, or F9) to enter the BIOS settings. Refer to your motherboard manual for the exact key.
-    * In the BIOS, locate the Boot Options menu and set the installation media (USB drive or DVD drive) as the first boot device. Save the changes and exit BIOS.
-    * Your computer should now boot from the installation media.
+* Insert your Windows installation media and restart your computer.
+* During startup, you might need to press a specific key (usually Del, Esc, F2, F10, or F9) to enter the BIOS settings. Refer to your motherboard manual for the exact key.
+* In the BIOS, locate the Boot Options menu and set the installation media (USB drive or DVD drive) as the first boot device. Save the changes and exit BIOS.
+* Your computer should now boot from the installation media.
 
 #### **2. Open Command Prompt:**
 
