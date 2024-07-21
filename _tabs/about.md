@@ -4,7 +4,6 @@ icon: fas fa-info-circle
 order: 4
 ---
 
-## whoami
 **Network Analyst & Security Aspirant**
 
 I'm a Network Operations Center (NOC) Analyst with a passion for cybersecurity. I'm particularly interested in penetration testing and computer networking, with experience configuring and managing Cisco and Palo Alto equipment. 
