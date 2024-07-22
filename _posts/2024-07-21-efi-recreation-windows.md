@@ -7,7 +7,8 @@ tags: [bcdboot,diskpart,microsoft,efi,bootloader,dualboot,windows]     # TAG nam
 
 ## Boot Your PC and Prepare for a Dual Boot (Windows 8/8.1/10)
 
-A while ago as I was playing around with my dualboot system, i accidentally deleted the EFI partitoin and had to figure out how to restore my windows installatoin. below is the steps i took to recover.
+A while ago as I was playing around with my dual-boot system, I accidentally deleted the EFI partition and had to figure out how to restore my windows installation. below is the steps i took to recover.
+
 
 **What You'll Need:**
 
