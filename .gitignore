@@ -20,7 +20,7 @@ package-lock.json
 .vscode
 !.vscode/settings.json
 !.vscode/extensions.json
-
+.obsidian
 # Misc
 _sass/dist
 assets/js/dist
